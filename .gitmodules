@@ -1,9 +1,14 @@
 [submodule "extern/borealis"]
 	path = extern/borealis
-	url = https://github.com/XITRIX/borealis.git
+	url = https://github.com/jmpangilinan/borealis.git
+	branch = master
 [submodule "extern/moonlight-common-c"]
 	path = extern/moonlight-common-c
-	url = https://github.com/XITRIX/moonlight-common-c.git
+	url = https://github.com/jmpangilinan/moonlight-common-c.git
+	branch = master
+[submodule "extern/netbird-switch"]
+	path = extern/netbird-switch
+	url = https://github.com/jmpangilinan/netbird-switch.git
 [submodule "extern/CImg"]
 	path = extern/CImg
 	url = https://github.com/XITRIX/CImg.git

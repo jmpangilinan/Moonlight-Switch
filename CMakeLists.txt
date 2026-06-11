@@ -181,6 +181,7 @@ elseif (PLATFORM_SWITCH)
     set(PLATFORM_LIBS
         # base lib
         nx m
+        mbedtls mbedx509 mbedcrypto  # NetBird VPN
     )
     list(APPEND MAIN_SRC
             ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c
@@ -393,6 +394,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sectio
 if(PLATFORM_SWITCH)
     target_include_directories(${PROJECT_NAME} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/lib/switch/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/extern/netbird-switch/include
     )
 endif ()
 
@@ -467,7 +469,13 @@ endif ()
 
 # Recompiled CURL with Mbedtls support for Switch
 if(PLATFORM_SWITCH)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/switch/libcurl.a)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/switch/libcurl.a
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/netbird-switch/libnetbird.a
+    )
+    target_link_options(${PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/netbird-switch/handle_full.o
+    )
 elseif (MOONLIGHT_APPLE_MOBILE_USE_MULTI_SDK)
     target_link_libraries(${PROJECT_NAME} PRIVATE curl)
 else()

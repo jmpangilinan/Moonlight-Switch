@@ -77,13 +77,27 @@ static int load_serverinfo(PSERVER_DATA server, bool https) {
     // HTTPS request fails. We can't just use HTTP for everything because it
     // doesn't accurately tell us if we're paired.
 
+    // NetBird proxy: when connecting to 127.0.0.1, force HTTP on port 47989
+    bool use_https = https;
+    unsigned short use_port = https ? server->httpsPort : server->httpPort;
+    const char *use_proto = https ? "https" : "http";
+    if (strcmp(server->serverInfo.address, "127.0.0.1") == 0) {
+        use_https = false;
+        use_port = server->httpPort;
+        use_proto = "http";
+    }
+
     snprintf(url, sizeof(url), "%s://%s:%d/serverinfo?uniqueid=%s",
-             https ? "https" : "http", server->serverInfo.address,
-             https ? server->httpsPort : server->httpPort, unique_id.c_str());
+             use_proto, server->serverInfo.address, use_port, unique_id.c_str());
 
     Data data;
 
-    if (http_request(url, &data, HTTPRequestTimeoutLow) != GS_OK) {
+    // NetBird proxy: use longest timeout (WG tunnel adds 100-300ms per round trip,
+    // TLS handshake needs 10+ round trips through relay)
+    HTTPRequestTimeout timeout = (strcmp(server->serverInfo.address, "127.0.0.1") == 0)
+        ? HTTPRequestTimeoutLong : HTTPRequestTimeoutLow;
+
+    if (http_request(url, &data, timeout) != GS_OK) {
         ret = GS_IO_ERROR;
         goto cleanup;
     }
@@ -433,9 +447,9 @@ int gs_pair(PSERVER_DATA server, char* pin) {
 
     snprintf(
         url, sizeof(url),
-        "https://%s:%u/"
+        "http://%s:%u/"
         "pair?uniqueid=%s&devicename=roth&updateState=1&phrase=pairchallenge",
-        server->serverInfo.address, server->httpsPort, unique_id.c_str());
+        server->serverInfo.address, server->httpPort, unique_id.c_str());
     if ((ret = http_request(url, &data, HTTPRequestTimeoutLong)) != GS_OK) {
         return gs_pair_cleanup(ret, server, &result);
     }
@@ -546,8 +560,28 @@ int gs_start_app(PSERVER_DATA server, STREAM_CONFIGURATION* config, int appId,
 
     if (xml_search(data, "sessionUrl0", &result) == GS_OK) {
         const std::string::size_type size = result.size();
-        server->serverInfo.rtspSessionUrl = new char[size + 1];
-        memcpy((void *) server->serverInfo.rtspSessionUrl, result.c_str(), size + 1);
+        // NetBird proxy: rewrite rtspenc://peer_ip:48010 → rtspenc://127.0.0.1:48010
+        std::string rtsp_url = result;
+        const char *prefix = "rtspenc://";
+        if (rtsp_url.find(prefix) == 0) {
+            size_t port_pos = rtsp_url.find(':', strlen(prefix));
+            if (port_pos != std::string::npos) {
+                std::string port = rtsp_url.substr(port_pos + 1);
+                rtsp_url = std::string(prefix) + "127.0.0.1:" + port;
+            } else {
+                rtsp_url = std::string(prefix) + "127.0.0.1";
+            }
+        } else if (rtsp_url.find("rtsp://") == 0) {
+            size_t port_pos = rtsp_url.find(':', strlen("rtsp://"));
+            if (port_pos != std::string::npos) {
+                std::string port = rtsp_url.substr(port_pos + 1);
+                rtsp_url = std::string("rtsp://127.0.0.1:") + port;
+            } else {
+                rtsp_url = "rtsp://127.0.0.1";
+            }
+        }
+        server->serverInfo.rtspSessionUrl = new char[rtsp_url.size() + 1];
+        memcpy((void *) server->serverInfo.rtspSessionUrl, rtsp_url.c_str(), rtsp_url.size() + 1);
     } else {
         brls::Logger::error("sessionUrl0 not found");
     }

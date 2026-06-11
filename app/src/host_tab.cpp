@@ -10,10 +10,31 @@
 #include "app_list_view.hpp"
 #include "helper.hpp"
 #include "main_tabs_view.hpp"
+#include <cstdio>
+
+extern "C" {
+#include "netbird.h"
+}
 
 using namespace brls::literals;
 
 namespace {
+// Saved NetBird hosts have address="127.0.0.1" + remoteAddress=peer VPN IP.
+// The proxy routes 127.0.0.1 to one peer at a time, so before any serverinfo
+// probe we must point it at this host's peer — otherwise a fresh app start
+// (proxy not running) or a proxy left on another peer shows "Status: Unable".
+void ensureNetbirdProxy(const Host& host) {
+    if (host.address != "127.0.0.1" || host.remoteAddress.empty()) return;
+    if (!netbird_is_ready()) return;
+    if (host.remoteAddress == netbird_proxy_target()) return;  // already routed
+
+    fprintf(stderr, "[ML-NB] HostTab: switching proxy to %s (was '%s')\n",
+            host.remoteAddress.c_str(), netbird_proxy_target());
+    netbird_proxy_stop();  // stops TCP + UDP
+    netbird_proxy_start(host.remoteAddress.c_str(), 47989);
+    netbird_proxy_start_udp(host.remoteAddress.c_str());
+}
+
 std::string host_subtitle(const Host& host) {
     std::string subtitle = host.address;
     if (!host.remoteAddress.empty() && host.remoteAddress != host.address) {
@@ -49,9 +70,13 @@ HostTab::HostTab(const Host& host) : host(host) {
 
     connect->registerClickAction([this](View* view) {
         switch (state) {
-        case AVAILABLE:
+        case AVAILABLE: {
+            // Hovering another NetBird host's tab re-points the proxy, so
+            // re-ensure ours before opening the app list (no-op if current).
+            ensureNetbirdProxy(this->host);
             this->present(new AppListView(this->host));
             break;
+        }
         case UNAVAILABLE:
             if (GameStreamClient::can_wake_up_host(this->host)) {
                 const auto wakeRequestId = ++this->wakeRequestGeneration;
@@ -122,6 +147,8 @@ void HostTab::reloadHost() {
     header->setTitle("host/status"_i18n + ": " + "host/fetching"_i18n);
     header->setSubtitle(host_subtitle(host));
     connect->setText("host/wait"_i18n);
+
+    ensureNetbirdProxy(host);
 
     ASYNC_RETAIN
     GameStreamClient::instance().connect(

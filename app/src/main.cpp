@@ -8,6 +8,9 @@
 // Switch include only necessary for demo videos recording
 #ifdef __SWITCH__
 #include <switch.h>
+#include <cstdio>
+
+#include "crash_handler.h"
 #endif
 
 #include <cstdlib>
@@ -21,6 +24,12 @@
 #include "main_activity.hpp"
 #include "main_tabs_view.hpp"
 #include "settings_tab.hpp"
+#include "settings_netbird_tab.hpp"
+
+// NetBird VPN integration
+extern "C" {
+#include "netbird.h"
+}
 
 #include "DiscoverManager.hpp"
 #include "MoonlightSession.hpp"
@@ -83,6 +92,15 @@ int main(int argc, char* argv[]) {
     appletInitializeGamePlayRecording();
     appletSetWirelessPriorityMode(AppletWirelessPriorityMode_OptimizedForWlan);
 
+    // Redirect stderr to nxlink for debug logging
+    nxlinkStdioForDebug();
+    
+    // Print NRO load address for crash report symbol resolution
+    fprintf(stderr, "[ML] LOADED: main=%p\n", (void*)&main);
+    
+    // Initialize SD card crash logger (sdmc:/switch/Moonlight/)
+    crash_handler_init(((uintptr_t)&main - 0x8f7a0), (uintptr_t)&main);
+
     // Keep the UI loop away from the hottest streaming worker core.
     preferSwitchCore(0);
 
@@ -103,6 +121,7 @@ int main(int argc, char* argv[]) {
     // Set log level
     // We recommend to use INFO for real apps
     brls::Logger::setLogLevel(brls::LogLevel::LOG_DEBUG);
+    brls::Logger::setLogOutput(stderr);  // redirect Borealis logs to nxlink
 
     // Init the app and i18n
     if (!brls::Application::init()) {
@@ -136,6 +155,7 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("HostTab", HostTab::create);
     brls::Application::registerXMLView("AddHostTab", AddHostTab::create);
     brls::Application::registerXMLView("SettingsTab", SettingsTab::create);
+    brls::Application::registerXMLView("NetbirdSettingsTab", NetbirdSettingsTab::create);
 
     // Add custom values to the theme
     brls::Theme::getLightTheme().addColor("captioned_image/caption",
@@ -157,8 +177,10 @@ int main(int argc, char* argv[]) {
     brls::Application::setSwapInputKeys(Settings::instance().swap_ui_keys());
 
     // Run the app
-    while (brls::Application::mainLoop())
-        ;
+    while (brls::Application::mainLoop()) {
+        netbird_poll();  // Keep lwIP + VPN alive
+    }
+    fprintf(stderr, "[ML] mainLoop() returned false — EXITING\n");
 
     // Exit
 #if defined(PLATFORM_TVOS)

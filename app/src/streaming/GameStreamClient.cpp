@@ -10,6 +10,7 @@
 
 #include <curl/curl.h>
 #include <libretro-common/retro_timers.h>
+#include <cstdio>
 #include <cstring>
 
 #if defined(_WIN32)
@@ -57,7 +58,12 @@ void rebind_server_info(SERVER_DATA& server) {
 }
 
 std::string host_key(const Host& host) {
-    if (!host.mac.empty()) {
+    // VPN-proxied hosts all share 127.0.0.1 and possibly a placeholder MAC —
+    // key them by the peer VPN IP so their server data doesn't collide.
+    if (is_proxied_host(host)) {
+        return "remote:" + host.remoteAddress;
+    }
+    if (!is_placeholder_mac(host.mac)) {
         return "mac:" + host.mac;
     }
     if (!host.address.empty()) {
@@ -145,17 +151,21 @@ bool connect_to_addresses_sync(const std::vector<std::string>& addresses,
             continue;
         }
 
+        fprintf(stderr, "[ML-GS] gs_init(%s)...\n", address.c_str());
         SERVER_DATA serverData{};
         const int status = gs_init(&serverData, address);
+        fprintf(stderr, "[ML-GS] gs_init(%s) = %d, error=%s\n", address.c_str(), status, gs_error());
         if (status == GS_OK) {
             connectedAddress = address;
             connectedServer = serverData;
+            fprintf(stderr, "[ML-GS] SUCCESS: %s hostname=%s\n", address.c_str(), serverData.hostname);
             return true;
         }
 
         error = gs_error();
     }
 
+    fprintf(stderr, "[ML-GS] FAILED all addresses, last error=%s\n", error.c_str());
     return false;
 }
 

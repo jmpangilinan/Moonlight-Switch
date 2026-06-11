@@ -1,5 +1,35 @@
 # Moonlight-Switch
 
+## NetBird VPN fork
+
+This fork adds an **in-app NetBird VPN client** for streaming over a mesh VPN:
+
+- **Settings → NetBird** tab to enter your management server URL + setup key
+- **VPN peers auto-discover** in the host search list (Sunshine hosts on the mesh)
+- **Multi-host proxy routing** — switch between peers seamlessly
+- **TCP/UDP proxy** bridging native sockets into the WireGuard tunnel
+
+**Usage**: Settings → NetBird → enter server URL + setup key → Connect. Once connected,
+VPN peers appear in the host list. Pair and stream as normal.
+
+**Build**:
+```bash
+git clone --recursive https://github.com/jmpangilinan/Moonlight-Switch.git
+cd Moonlight-Switch
+./build.sh
+```
+Prerequisites: [devkitPro](https://devkitpro.org/) with devkitA64 + portlibs (see
+[upstream README](https://github.com/XITRIX/Moonlight-Switch) for details).
+On Windows, run inside devkitPro msys2 bash with `TMP=/tmp TEMP=/tmp TMPDIR=/tmp`.
+
+**VPN library**: [github.com/jmpangilinan/netbird-switch](https://github.com/jmpangilinan/netbird-switch) —
+architecture, API, and lessons learned.
+
+> ⚠️ **Proof of concept, unmaintained.** This fork demonstrates that VPN-on-Switch
+> is possible but is not actively developed. Use at your own risk.
+
+---
+
 Moonlight-Switch is a port of [Moonlight Game Streaming Project](https://github.com/moonlight-stream "Moonlight Game Streaming Project") for Nintendo Switch.
 
 ## Screenshots

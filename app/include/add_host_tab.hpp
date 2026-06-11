@@ -7,7 +7,9 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
+#include <memory>
 #include <borealis.hpp>
 #include "Settings.hpp"
 #include "GameStreamClient.hpp"
@@ -22,6 +24,7 @@ class AddHostTab : public brls::Box
 
   private:
     void findHost();
+    void addNetbirdPeers();
     void stopSearchHost();
     void connectHost(const Host& host);
     void fillSearchBox(const GSResult<std::vector<Host>>& hostsRes);
@@ -30,6 +33,11 @@ class AddHostTab : public brls::Box
     static void startSearching();
     brls::Event<GSResult<std::vector<Host>>>::Subscription searchSubscription;
     uint64_t searchGeneration = 0;
+
+    // Outlives the tab; dtor flips it so the NetBird peer-probe thread and
+    // its queued brls::sync lambdas never touch a destroyed `this`.
+    std::shared_ptr<std::atomic<bool>> alive =
+        std::make_shared<std::atomic<bool>>(true);
 
     bool searchBoxIpExists(const std::string& ip);
     

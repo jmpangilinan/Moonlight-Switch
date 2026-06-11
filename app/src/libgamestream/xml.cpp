@@ -180,6 +180,7 @@ int xml_applist(const Data& data, PAPP_LIST* app_list) {
 
 int xml_status(const Data& data) {
     int status = 0;
+    fprintf(stderr, "[ML-XML] xml_status: %.*s\n", (int)data.size(), (const char*)data.bytes());
     XML_Parser parser = XML_ParserCreate("UTF-8");
     XML_SetUserData(parser, &status);
     XML_SetElementHandler(parser, _xml_start_status_element,
@@ -188,10 +189,12 @@ int xml_status(const Data& data) {
     if (!XML_Parse(parser, (const char*)data.bytes(), (int)data.size(), 1)) {
         XML_Error code = XML_GetErrorCode(parser);
         gs_set_error(XML_ErrorString(code));
+        fprintf(stderr, "[ML-XML] xml_status FAIL: %s\n", XML_ErrorString(code));
         XML_ParserFree(parser);
         return GS_INVALID;
     }
 
     XML_ParserFree(parser);
+    fprintf(stderr, "[ML-XML] xml_status OK: status_code=%d\n", status);
     return status == STATUS_OK ? GS_OK : GS_ERROR;
 }

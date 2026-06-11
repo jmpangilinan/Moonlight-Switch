@@ -11,6 +11,7 @@
 #include "add_host_tab.hpp"
 #include "host_tab.hpp"
 #include "settings_tab.hpp"
+#include "settings_netbird_tab.hpp"
 
 MainTabs::MainTabs() {
     favoriteTab = new FavoriteTab();
@@ -62,6 +63,7 @@ void MainTabs::refillTabs(bool keepFocus) {
 
     addTab("tabs/add_host"_i18n, AddHostTab::create);
     addTab("tabs/settings"_i18n, SettingsTab::create);
+    addTab("NetBird", [] { return (brls::View*)new NetbirdSettingsTab(); });
     addSeparator();
     addTab("tabs/about"_i18n, AboutTab::create);
     sidebar->setContentOffsetY(-40, false);

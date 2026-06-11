@@ -64,8 +64,23 @@ struct Host {
     }
 };
 
+// Sunshine may report an all-zero MAC, which cannot identify a host.
+inline bool is_placeholder_mac(const std::string& mac) {
+    return mac.empty() || mac == "00:00:00:00:00:00";
+}
+
+// VPN-proxied hosts all share address 127.0.0.1 (the local proxy); their
+// identity is the peer VPN IP stored in remoteAddress.
+inline bool is_proxied_host(const Host& host) {
+    return host.address == "127.0.0.1" && !host.remoteAddress.empty();
+}
+
 inline bool hosts_match(const Host& lhs, const Host& rhs) {
-    if (!lhs.mac.empty() && !rhs.mac.empty())
+    if (is_proxied_host(lhs) || is_proxied_host(rhs))
+        return !lhs.remoteAddress.empty() &&
+               lhs.remoteAddress == rhs.remoteAddress;
+
+    if (!is_placeholder_mac(lhs.mac) && !is_placeholder_mac(rhs.mac))
         return lhs.mac == rhs.mac;
 
     for (const auto& address : lhs.connection_addresses()) {
@@ -201,6 +216,14 @@ class Settings : public Singleton<Settings> {
     void set_overlay_system_button(ButtonOverrideType type) { m_overlay_system_button = type; }
     [[nodiscard]] ButtonOverrideType get_overlay_system_button() const { return m_overlay_system_button; }
 
+    // ─── NetBird VPN settings ───
+    [[nodiscard]] bool netbird_enabled() const { return m_netbird_enabled; }
+    void set_netbird_enabled(bool v) { m_netbird_enabled = v; }
+    [[nodiscard]] std::string netbird_server() const { return m_netbird_server; }
+    void set_netbird_server(const std::string& v) { m_netbird_server = v; }
+    [[nodiscard]] std::string netbird_key() const { return m_netbird_key; }
+    void set_netbird_key(const std::string& v) { m_netbird_key = v; }
+
     void set_guide_system_button(ButtonOverrideType type) { m_guide_system_button = type; }
     [[nodiscard]] ButtonOverrideType get_guide_system_button() const { return m_guide_system_button; }
 
@@ -289,6 +312,11 @@ class Settings : public Singleton<Settings> {
 
     float m_deadzone_stick_left = 0;
     float m_deadzone_stick_right = 0;
+
+    // NetBird
+    bool m_netbird_enabled = false;
+    std::string m_netbird_server;
+    std::string m_netbird_key;
 
     void loadBaseLayouts();
 };

@@ -6,6 +6,10 @@
 #include "borealis.hpp"
 #include <string.h>
 
+extern "C" {
+#include "netbird.h"
+}
+
 #if defined(PLATFORM_IOS) || defined(PLATFORM_VISIONOS)
 extern void getWindowSize(int* w, int* h);
 #endif
@@ -133,6 +137,7 @@ void MoonlightSession::connection_log_message(const char* format, ...) {
     vsnprintf(buffer, size, format, arglist);
     va_end(arglist);
 
+    fprintf(stderr, "[ML-LOG] %s\n", buffer);  // nxlink visibility
     brls::Logger::info(fmt::runtime(std::string(buffer)));
 }
 
@@ -289,8 +294,8 @@ void MoonlightSession::start(ServerCallback<bool> callback, bool is_sunshine) {
         break;
     case H265:
         m_config.supportedVideoFormats = VIDEO_FORMAT_H265;
-            if (Settings::instance().request_hdr())
-                m_config.supportedVideoFormats |= VIDEO_FORMAT_H265_MAIN10;
+        if (Settings::instance().request_hdr())
+            m_config.supportedVideoFormats |= VIDEO_FORMAT_H265_MAIN10;
         break;
     case AV1:
         m_config.supportedVideoFormats = VIDEO_FORMAT_AV1_MAIN8;

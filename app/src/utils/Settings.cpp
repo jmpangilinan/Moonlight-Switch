@@ -468,7 +468,15 @@ void Settings::load() {
                 }
             }
         }
-        
+
+        // NetBird VPN settings (server/key persist, enabled always starts off)
+        if (json_t* nb = json_object_get(root, "netbird_server"))
+            if (json_typeof(nb) == JSON_STRING)
+                m_netbird_server = json_string_value(nb);
+        if (json_t* nb = json_object_get(root, "netbird_key"))
+            if (json_typeof(nb) == JSON_STRING)
+                m_netbird_key = json_string_value(nb);
+
         json_decref(root);
     }
 }
@@ -575,7 +583,11 @@ void Settings::save() {
             }
             json_object_set_new(root, "mapping_layouts", hosts);
         }
-        
+
+        // NetBird VPN settings (server/key, enabled not persisted)
+        json_object_set_new(root, "netbird_server", json_string(m_netbird_server.c_str()));
+        json_object_set_new(root, "netbird_key", json_string(m_netbird_key.c_str()));
+
         json_dump_file(root, settings_file_path(m_working_dir).c_str(), JSON_INDENT(4));
         json_decref(root);
     }
