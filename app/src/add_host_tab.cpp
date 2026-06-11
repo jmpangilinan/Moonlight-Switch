@@ -257,12 +257,15 @@ void AddHostTab::connectHost(const Host& host) {
     // Accept either the explicit proxy form (address="127.0.0.1") or a
     // manually-entered VPN IP that matches a known peer.
     Host effective_host = host;
-    const char *target_peer = NULL;
+    std::string target_peer;
     if (host.address == "127.0.0.1" && !host.remoteAddress.empty()) {
-        target_peer = host.remoteAddress.c_str();
+        target_peer = host.remoteAddress;
     } else if (netbird_is_ready() && (!host.remoteAddress.empty() || !host.address.empty())) {
-        // User typed a VPN IP manually → check if it's a known peer
-        const std::string& candidate = !host.remoteAddress.empty() ? host.remoteAddress : host.address;
+        // User typed a VPN IP manually → check if it's a known peer.
+        // The input hint suggests "ip:port" format, so strip any :port
+        // before comparing against the bare peer IPs.
+        const std::string& raw = !host.remoteAddress.empty() ? host.remoteAddress : host.address;
+        const std::string candidate = strip_ipv4_port(raw);
         int count = netbird_get_peer_count();
         for (int i = 0; i < count; i++) {
             char ip[64], name[128];
@@ -271,11 +274,11 @@ void AddHostTab::connectHost(const Host& host) {
             }
         }
     }
-    if (target_peer) {
-        fprintf(stderr, "[ML-NB] switching proxy to %s\n", target_peer);
+    if (!target_peer.empty()) {
+        fprintf(stderr, "[ML-NB] switching proxy to %s\n", target_peer.c_str());
         netbird_proxy_stop();  // stops TCP + UDP
-        netbird_proxy_start(target_peer, 47989);
-        netbird_proxy_start_udp(target_peer);
+        netbird_proxy_start(target_peer.c_str(), 47989);
+        netbird_proxy_start_udp(target_peer.c_str());
         effective_host.address = "127.0.0.1";
         effective_host.remoteAddress = target_peer;
     }
