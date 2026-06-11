@@ -164,6 +164,7 @@ void NetbirdSettingsTab::connectVPN() {
                 status_peers->setText(buf);
                 status_peers->setTextColor(nvgRGB(150, 180, 160));
                 connect_btn->setOn(true, false);
+                connect_btn->setEnabled(true);
                 // Proxy is started on-demand in connectHost() when
                 // user clicks a peer from the search results.
             } else {
@@ -180,11 +181,28 @@ void NetbirdSettingsTab::connectVPN() {
 }
 
 void NetbirdSettingsTab::disconnectVPN() {
-    netbird_shutdown();
-    status_label->setText("Disconnected");
-    status_label->setTextColor(nvgRGB(180, 180, 185));
-    status_card->setBackgroundColor(nvgRGB(50, 50, 55));
-    status_detail->setText("");
-    status_peers->setText("");
-    connect_btn->setOn(false, false);
+    // netbird_shutdown() joins ~10 network threads (proxy, relay, WG,
+    // keepalive) — run it off the UI thread or the app freezes.
+    connect_btn->setEnabled(false);
+    status_label->setText("Disconnecting...");
+    status_label->setTextColor(nvgRGB(255, 255, 255));
+    status_card->setBackgroundColor(nvgRGB(60, 65, 75));
+
+    brls::Dialog* loading = createLoadingDialog("Disconnecting from VPN...");
+    loading->setCancelable(false);
+    loading->open();
+
+    brls::async([this, loading]() {
+        netbird_shutdown();
+        brls::sync([this, loading]() {
+            loading->close();
+            status_label->setText("Disconnected");
+            status_label->setTextColor(nvgRGB(180, 180, 185));
+            status_card->setBackgroundColor(nvgRGB(50, 50, 55));
+            status_detail->setText("");
+            status_peers->setText("");
+            connect_btn->setOn(false, false);
+            connect_btn->setEnabled(true);
+        });
+    });
 }
